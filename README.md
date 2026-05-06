@@ -31,8 +31,7 @@ MindSpace is a comprehensive mental health platform developed as part of our **C
 
 ### 👥 The Team
 Developed with ❤️ by:
-*   **Siddhant Utale** (Lead Developer)
-*   **Sameer, Vinit, Tanishka, Ruturaj, Sarthak**
+*   **Siddhant Utale** (Developer)
 
 ---
 
