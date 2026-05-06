@@ -16,7 +16,7 @@
 MindSpace is a comprehensive mental health platform. It provides a safe space for users to track their emotional well-8ing and interact with an AI counselor powered by Google's latest generative models.
 
 ### 🚀 Key Features
-*   **Intelligent Chat**: empathetic conversations via the **Gemini 1.5 Flash** API.
+*   **Intelligent Chat**: empathetic conversations via the **Gemini 2.5 Flash** API.
 *   **Mood Tracker**: Visualized wellness journey with daily streak tracking.
 *   **Knowledge Hub**: Curated mental health resources and assessment tools.
 *   **Privacy-First**: Secure backend wrapper to protect user interactions and API secrets.
