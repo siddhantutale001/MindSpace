@@ -36,5 +36,5 @@ Developed with ❤️ by:
 ---
 
 <div align="center">
-  <p><i>Submission for Rajarshi Shahu College of Engineering (RSCOE), Pune</i></p>
+  <p><i>MindSpace</i></p>
 </div>
