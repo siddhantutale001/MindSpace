@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MindSpace - Complete Wellness System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Tiro+Devanagari+Marathi&display=swap" rel="stylesheet">
+    <!-- Chart.js for Mood Graph -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        body { font-family: 'Outfit', sans-serif; background-color: #f0fdf4; overflow-x: hidden; scroll-behavior: smooth; }
+        body.lang-mr { font-family: 'Tiro Devanagari Marathi', 'Outfit', sans-serif; }
+        
+        /* Glassmorphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Animations */
+        .breathing-circle {
+            width: 220px; height: 220px; border-radius: 50%;
+            background: conic-gradient(#4ade80, #16a34a);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 60px rgba(74, 222, 128, 0.5);
+            transition: all 4s ease-in-out; position: relative; z-index: 10;
+        }
+        .breathing-circle::before {
+            content: ''; position: absolute; width: 85%; height: 85%;
+            background-color: #ffffff; border-radius: 50%; z-index: 1;
+        }
+        .breathing-text { position: relative; z-index: 2; font-size: 1.5rem; font-weight: 700; color: #15803d; }
+        .inhale { transform: scale(1.3); } .exhale { transform: scale(1); } .hold { transform: scale(1.3); }
+
+        .section-content { display: none; animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+        .section-content.active { display: block; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .chat-float { position: fixed; bottom: 25px; right: 25px; z-index: 50; animation: float 6s ease-in-out infinite; box-shadow: 0 10px 25px -5px rgba(22, 163, 74, 0.5); }
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+        
+        .playing-indicator span { display: inline-block; width: 4px; height: 15px; background-color: #22c55e; border-radius: 2px; animation: sound 0s infinite; margin: 0 2px; }
+        .playing .playing-indicator span { animation-duration: 0.5s; }
+        @keyframes sound { 0% { height: 5px; } 50% { height: 20px; } 100% { height: 5px; } }
+
+        .tab-btn.active { background-color: #16a34a; color: white; border-color: #16a34a; }
+        .hidden-answer { filter: blur(5px); user-select: none; cursor: pointer; transition: filter 0.3s; }
+        .hidden-answer:hover { filter: blur(0px); }
+        
+        .mood-item:hover { transform: scale(1.1); opacity: 0.8; }
+        .mood-item.selected { transform: scale(1.25); opacity: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
+        
+        /* Auth Tabs */
+        .auth-tab.active { border-bottom: 2px solid #16a34a; color: #16a34a; font-weight: 700; }
+        .auth-tab { color: #9ca3af; font-weight: 500; }
+
+        /* Typing Indicator */
+        .typing-dot { width: 6px; height: 6px; border-radius: 50%; background-color: #4b5563; animation: typing 1.4s infinite ease-in-out both; }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        /* Chips */
+        .chat-chip { font-size: 0.75rem; padding: 4px 10px; border-radius: 999px; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .chat-chip:hover { background: #dcfce7; transform: translateY(-1px); }
+    </style>
+</head>
+<body class="bg-green-50 min-h-screen flex flex-col selection:bg-green-200 relative">
+
+    <!-- LOGIN / ONBOARDING MODAL -->
+    <div id="onboarding-modal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm hidden">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-blue-500"></div>
+            
+            <!-- Auth Headers -->
+            <div class="text-center mb-6">
+                <i class="ph-fill ph-plant text-green-600 text-5xl mb-2"></i>
+                <h2 class="text-2xl font-bold text-gray-800" data-i18n="login_title">Welcome to MindSpace</h2>
+                <p class="text-gray-500 text-sm" data-i18n="login_desc">Your safe space for mental wellness.</p>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex justify-center mb-6 border-b border-gray-100">
+                <button onclick="switchAuthMode('login')" id="tab-login" class="auth-tab active w-1/2 py-2 transition-colors">Login</button>
+                <button onclick="switchAuthMode('signup')" id="tab-signup" class="auth-tab w-1/2 py-2 transition-colors">Sign Up</button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="form-login" class="space-y-4">
+                <input type="text" id="li-contact" placeholder="Email or Phone Number" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium">
+                <input type="password" id="li-pass" placeholder="Password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium">
+                <button onclick="attemptLogin()" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition transform hover:scale-105 shadow-lg" data-i18n="btn_login">Login</button>
+            </div>
+
+            <!-- Sign Up Form -->
+            <div id="form-signup" class="hidden space-y-4">
+                <input type="text" id="su-name" placeholder="Full Name" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium">
+                <input type="text" id="su-contact" placeholder="Email or Phone Number" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium">
+                <input type="password" id="su-pass" placeholder="Create Password" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium">
+                <button onclick="attemptSignup()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition transform hover:scale-105 shadow-lg">Create Account</button>
+            </div>
+
+            <div class="mt-4 text-center">
+                <button onclick="skipOnboarding()" class="text-gray-400 text-sm hover:text-gray-600 font-medium" data-i18n="btn_skip">Skip for now (Guest Mode)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APPOINTMENT BOOKING MODAL -->
+    <div id="appointment-modal" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 backdrop-blur-sm hidden">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full relative">
+            <button onclick="closeAppointmentModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><i class="ph-bold ph-x text-xl"></i></button>
+            <h3 class="text-xl font-bold text-gray-800 mb-1" data-i18n="book_title">Book Appointment</h3>
+            <p class="text-sm text-green-600 mb-4 font-bold" id="booking-doc-name">Dr. Name</p>
+            
+            <label class="block text-xs font-bold text-gray-500 mb-1" data-i18n="lbl_date">Date</label>
+            <input type="date" id="book-date" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 mb-3 focus:ring-2 focus:ring-green-500">
+            
+            <label class="block text-xs font-bold text-gray-500 mb-1" data-i18n="lbl_time">Time</label>
+            <input type="time" id="book-time" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 mb-4 focus:ring-2 focus:ring-green-500">
+            
+            <button onclick="confirmBooking()" class="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 transition" data-i18n="btn_confirm">Confirm Booking</button>
+        </div>
+    </div>
+
+    <!-- QUICK EXIT -->
+    <a href="https://www.google.com" class="fixed top-20 right-4 z-40 bg-red-100 hover:bg-red-200 text-red-600 text-xs font-bold px-3 py-1 rounded-full border border-red-200 flex items-center gap-1 opacity-50 hover:opacity-100 transition">
+        <i class="ph-bold ph-sign-out"></i> Exit
+    </a>
+
+    <!-- NAVBAR -->
+    <nav class="glass sticky top-0 z-40 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-2 cursor-pointer group" onclick="showSection('home')">
+                    <div class="bg-green-100 p-2 rounded-lg group-hover:bg-green-200 transition"><i class="ph-fill ph-plant text-green-600 text-2xl"></i></div>
+                    <span class="text-2xl font-bold text-gray-800 tracking-tight">MindSpace</span>
+                </div>
+                <div class="hidden md:flex items-center space-x-6 text-gray-600 font-medium text-sm">
+                    <button onclick="showSection('home')" class="hover:text-green-600 transition" data-i18n="nav_home">Dashboard</button>
+                    <button onclick="showSection('doctors')" class="hover:text-green-600 transition" data-i18n="nav_doc">Doctors</button>
+                    <button onclick="showSection('assessment')" class="hover:text-green-600 transition" data-i18n="nav_test">Assessment</button>
+                    <button onclick="showSection('breather')" class="hover:text-green-600 transition" data-i18n="nav_breath">Breather</button>
+                    <button onclick="showSection('knowledge')" class="hover:text-green-600 transition" data-i18n="nav_know">Knowledge Hub</button>
+                    <button onclick="showSection('resources')" class="hover:text-green-600 transition" data-i18n="nav_help">Helplines</button>
+                    <div class="relative">
+                        <select id="lang-selector" onchange="changeLanguage(this.value)" class="appearance-none bg-green-50 border border-green-200 text-green-700 text-xs rounded-full pl-3 pr-8 py-1.5 outline-none focus:ring-2 focus:ring-green-500 cursor-pointer font-bold hover:bg-green-100 transition">
+                            <option value="en">🇺🇸 English</option>
+                            <option value="mr">🇮🇳 मराठी</option>
+                        </select>
+                        <i class="ph-bold ph-caret-down absolute right-2 top-2 text-green-700 text-xs pointer-events-none"></i>
+                    </div>
+                    <div class="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-full cursor-pointer hover:bg-gray-200 transition" onclick="handleProfileClick()">
+                        <div class="w-6 h-6 bg-green-500 rounded-full text-white flex items-center justify-center text-xs font-bold" id="user-initial">G</div>
+                        <span class="text-xs font-bold text-gray-700" id="user-display">Guest</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 md:hidden">
+                    <button onclick="toggleMobileMenu()" class="text-gray-600 p-2 rounded-md hover:bg-gray-100"><i class="ph ph-list text-2xl"></i></button>
+                </div>
+            </div>
+        </div>
+        <div id="mobile-menu" class="hidden md:hidden bg-white border-t px-4 pb-6 shadow-xl absolute w-full z-50 rounded-b-2xl">
+            <button onclick="showSection('home'); toggleMobileMenu()" class="block w-full text-left py-3 border-b text-gray-600" data-i18n="nav_home">Dashboard</button>
+            <button onclick="showSection('doctors'); toggleMobileMenu()" class="block w-full text-left py-3 border-b text-gray-600" data-i18n="nav_doc">Doctors</button>
+            <button onclick="showSection('assessment'); toggleMobileMenu()" class="block w-full text-left py-3 border-b text-gray-600" data-i18n="nav_test">Assessment</button>
+            <button onclick="showSection('knowledge'); toggleMobileMenu()" class="block w-full text-left py-3 border-b text-gray-600" data-i18n="nav_know">Knowledge Hub</button>
+        </div>
+    </nav>
+
+    <!-- DASHBOARD -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        <div id="home" class="section-content active">
+            <div class="flex flex-col md:flex-row justify-between items-end mb-8">
+                <div>
+                    <h1 class="text-3xl md:text-5xl font-extrabold text-gray-900 mb-2"><span data-i18n="dash_hello">Good Afternoon</span>, <span id="dashboard-name" class="text-green-600">Friend</span>! ☀️</h1>
+                    <p class="text-gray-500" data-i18n="hero_desc">Ready to take care of your mind today?</p>
+                </div>
+                <div class="bg-orange-50 text-orange-700 px-4 py-2 rounded-xl font-bold flex items-center gap-2 mt-4 md:mt-0 shadow-sm border border-orange-100">
+                    <i class="ph-fill ph-fire text-orange-500 text-xl"></i> <span id="streak-count">0</span> <span data-i18n="dash_streak">Day Streak</span>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="md:col-span-2 space-y-8">
+                    <!-- Appointments Card -->
+                    <div id="appointments-card" class="bg-blue-50 p-6 rounded-3xl border border-blue-100 hidden">
+                        <h3 class="font-bold text-blue-800 mb-3 flex items-center gap-2"><i class="ph-fill ph-calendar-check"></i> <span data-i18n="dash_upcoming">Upcoming Appointments</span></h3>
+                        <div id="appointments-list" class="space-y-2"></div>
+                    </div>
+
+                    <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+                        <h3 class="font-bold text-gray-800 mb-6 flex items-center gap-2 text-xl"><i class="ph-fill ph-smiley text-green-500"></i> <span data-i18n="mood_title">How are you feeling today?</span></h3>
+                        <div class="flex justify-between items-center max-w-md mx-auto mb-6">
+                            <div class="mood-item flex flex-col items-center gap-2" onclick="logMood(1)"><div class="text-4xl">😢</div></div>
+                            <div class="mood-item flex flex-col items-center gap-2" onclick="logMood(2)"><div class="text-4xl">😕</div></div>
+                            <div class="mood-item flex flex-col items-center gap-2" onclick="logMood(3)"><div class="text-4xl">😐</div></div>
+                            <div class="mood-item flex flex-col items-center gap-2" onclick="logMood(4)"><div class="text-4xl">🙂</div></div>
+                            <div class="mood-item flex flex-col items-center gap-2" onclick="logMood(5)"><div class="text-4xl">🤩</div></div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+                        <div class="flex justify-between items-center mb-6"><h3 class="font-bold text-gray-800 text-xl" data-i18n="dash_graph">Your Wellness Journey</h3></div>
+                        <canvas id="moodChart" height="100"></canvas>
+                    </div>
+                </div>
+                <div class="space-y-6">
+                    <div class="bg-gradient-to-br from-green-600 to-teal-700 p-8 rounded-3xl shadow-lg text-white relative overflow-hidden">
+                        <i class="ph-fill ph-quotes text-8xl absolute -top-4 -right-4 opacity-10"></i>
+                        <h4 class="font-bold text-green-100 text-xs uppercase tracking-widest mb-3" data-i18n="quote_title">Daily Wisdom</h4>
+                        <p id="daily-quote" class="text-lg font-medium leading-relaxed italic">"You are enough."</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                        <h3 class="font-bold text-gray-800 mb-3 flex items-center gap-2"><i class="ph-fill ph-notebook text-purple-500"></i> <span data-i18n="dash_journal">Mini Journal</span></h3>
+                        <textarea id="daily-journal" class="w-full bg-gray-50 border-0 rounded-xl p-4 text-sm text-gray-700 focus:ring-2 focus:ring-purple-200 transition h-32 resize-none" oninput="saveJournal()"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DOCTORS SECTION -->
+        <div id="doctors" class="section-content">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-3" data-i18n="doc_title">Find Help & Support</h2>
+                <p class="text-gray-500" data-i18n="doc_subtitle">Connect with qualified professionals.</p>
+            </div>
+            <div class="flex justify-center gap-4 mb-8">
+                <button onclick="toggleDocView('find', this)" class="doc-tab-btn active bg-green-600 text-white px-6 py-2 rounded-full font-bold transition shadow-lg" data-i18n="btn_find_doc">Find a Doctor</button>
+                <button onclick="toggleDocView('register', this)" class="doc-tab-btn bg-white text-gray-600 border border-gray-200 px-6 py-2 rounded-full font-bold transition hover:bg-gray-50" data-i18n="btn_reg_doc">Register as Professional</button>
+            </div>
+            <div id="doc-find-view" class="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto"></div>
+            <div id="doc-register-view" class="hidden max-w-lg mx-auto bg-white p-8 rounded-3xl shadow-lg border border-gray-100">
+                <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center" data-i18n="reg_title">Professional Registration</h3>
+                <form onsubmit="registerDoctor(event)" class="space-y-4">
+                    <input type="text" id="doc-name" required placeholder="Full Name (e.g. Dr. Patil)" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2">
+                    <input type="text" id="doc-lic" required placeholder="Medical License Number" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2">
+                    <select id="doc-spec" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2">
+                        <option value="Psychiatrist">Psychiatrist</option><option value="Psychologist">Clinical Psychologist</option><option value="Counselor">Counselor</option>
+                    </select>
+                    <input type="text" id="doc-exp" required placeholder="Experience (e.g. 8 Years)" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2">
+                    <input type="text" id="doc-contact" required placeholder="Location/City" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2">
+                    <button type="submit" class="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition mt-4" data-i18n="btn_submit_reg">Register Now</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- KNOWLEDGE HUB -->
+        <div id="knowledge" class="section-content">
+            <div class="text-center mb-10"><h2 class="text-3xl font-bold" data-i18n="nav_know">Knowledge Hub</h2></div>
+            <div class="flex flex-wrap justify-center gap-3 mb-10">
+                <button onclick="openTab('wellness')" class="tab-btn active border border-gray-200 px-6 py-2.5 rounded-full text-sm font-bold bg-green-600 text-white" data-i18n="tab_wellness">Mental Wellness</button>
+                <button onclick="openTab('signals')" class="tab-btn border border-gray-200 px-6 py-2.5 rounded-full text-sm font-bold" data-i18n="tab_signals">Distress Signals</button>
+                <button onclick="openTab('illness')" class="tab-btn border border-gray-200 px-6 py-2.5 rounded-full text-sm font-bold" data-i18n="tab_myths">Myths vs Facts</button>
+                <button onclick="openTab('selfhelp')" class="tab-btn border border-gray-200 px-6 py-2.5 rounded-full text-sm font-bold" data-i18n="tab_selfhelp">Self Help</button>
+                <button onclick="openTab('brainfood')" class="tab-btn border border-gray-200 px-6 py-2.5 rounded-full text-sm font-bold" data-i18n="tab_brain">Brain Gym 🧠</button>
+            </div>
+            <div class="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
+                <div id="tab-wellness" class="info-tab">
+                    <h3 class="text-2xl font-bold text-green-700 mb-4" data-i18n="t_well_title">What is Mental Wellness?</h3>
+                    <p class="text-gray-700 leading-relaxed mb-4" data-i18n="t_well_desc">It is a state of well-being where an individual realizes their potential, copes with normal stresses, works productively, and contributes to the community.</p>
+                    <div class="bg-green-50 p-6 rounded-2xl"><h4 class="font-bold text-green-800 mb-2">Key Factors</h4><p data-i18n="t_well_deep">Biological factors (genes), Life experiences (trauma/abuse), and Family history of mental health problems all play a role.</p></div>
+                </div>
+                <div id="tab-signals" class="info-tab hidden">
+                    <h3 class="text-2xl font-bold text-red-600 mb-4" data-i18n="t_sig_title">Distress Signals</h3>
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div class="bg-red-50 p-6 rounded-2xl"><h4 class="font-bold text-red-800" data-i18n="t_sig_emo">Emotional</h4><p data-i18n="t_sig_emo_desc">Feeling sad/down, confused thinking, excessive fears, extreme mood changes.</p></div>
+                        <div class="bg-red-50 p-6 rounded-2xl"><h4 class="font-bold text-red-800" data-i18n="t_sig_phy">Physical</h4><p data-i18n="t_sig_phy_desc">Low energy, sleeping problems, significant tiredness, delusions or hallucinations.</p></div>
+                    </div>
+                </div>
+                <div id="tab-illness" class="info-tab hidden">
+                    <h3 class="text-2xl font-bold text-blue-600 mb-4" data-i18n="t_myth_title">Myths vs Facts</h3>
+                    <div class="space-y-4">
+                        <div class="bg-white border p-4 rounded-xl"><p class="font-bold text-red-500 mb-1" data-i18n="t_myth_1_m">Myth: Mental health problems don't affect me.</p><p class="text-green-600" data-i18n="t_myth_1_f">Fact: They are common.</p></div>
+                    </div>
+                </div>
+                <div id="tab-selfhelp" class="info-tab hidden">
+                    <h3 class="text-2xl font-bold text-purple-600 mb-4" data-i18n="t_self_title">Self Help</h3>
+                    <p data-i18n="t_self_desc">Connect with others, stay positive, get physically active, help others, get enough sleep, and develop coping skills.</p>
+                </div>
+                <div id="tab-brainfood" class="info-tab hidden">
+                    <h3 class="text-2xl font-bold text-orange-600 mb-4" data-i18n="t_brain_title">Brain Gym</h3>
+                    <div class="bg-orange-50 p-6 rounded-2xl border border-orange-100">
+                        <div class="flex justify-between items-center mb-4"><h4 class="font-bold text-orange-800" data-i18n="t_brain_rid_title">Riddle</h4><button onclick="nextRiddle()" class="text-xs bg-white px-3 py-1 rounded-full border border-orange-200">Next</button></div>
+                        <p id="riddle-text" class="text-gray-800 italic mb-2">"I speak without a mouth..."</p>
+                        <button onclick="toggleAnswer()" class="text-orange-600 text-sm font-bold underline" data-i18n="btn_show_ans">Show Answer</button>
+                        <p id="riddle-answer" class="hidden-answer text-green-600 font-bold mt-2">An Echo</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OTHER SECTIONS (Assessment, Breather, Resources - Standard) -->
+        <div id="assessment" class="section-content">
+            <div class="max-w-3xl mx-auto bg-white rounded-[2.5rem] p-12 shadow-xl">
+                <h2 class="text-3xl font-bold mb-6" data-i18n="card_test_title">PHQ-9 Assessment</h2>
+                <div id="quiz-container"></div>
+                <div id="quiz-result" class="hidden text-center"><h3 class="text-3xl font-bold mb-2"><span data-i18n="res_score">Score</span>: <span id="score-display"></span></h3><p id="result-text" class="mb-6"></p><button onclick="resetQuiz()" class="text-gray-500 underline" data-i18n="btn_retake">Retake</button></div>
+            </div>
+        </div>
+        <div id="breather" class="section-content">
+            <div class="max-w-4xl mx-auto text-center">
+                <h2 class="text-4xl font-bold mb-4" data-i18n="nav_breath">Breather Zone</h2>
+                <div class="bg-white rounded-[3rem] p-12 shadow-xl mb-12 flex flex-col items-center">
+                    <div class="breathing-circle" id="breath-circle"><span class="breathing-text" id="breath-text">Ready?</span></div>
+                    <button onclick="toggleBreathing()" id="breath-btn" class="mt-12 bg-gray-900 text-white px-10 py-3 rounded-full font-bold transition shadow-lg" data-i18n="btn_start_breath">Start Session</button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <button class="sound-btn bg-white p-6 rounded-2xl border border-gray-100 hover:border-green-500 hover:shadow-lg transition flex flex-col items-center gap-4 group" onclick="toggleAudio('rain', this)">
+                        <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center group-hover:bg-blue-100 transition"><i class="ph-fill ph-cloud-rain text-blue-500 text-3xl"></i></div>
+                        <span class="font-bold text-gray-700" data-i18n="sound_rain">Heavy Rain</span>
+                        <div class="playing-indicator text-green-500 hidden h-4 flex items-end"><span></span><span></span><span></span><span></span></div>
+                    </button>
+                    <button class="sound-btn bg-white p-6 rounded-2xl border border-gray-100 hover:border-green-500 hover:shadow-lg transition flex flex-col items-center gap-4 group" onclick="toggleAudio('forest', this)">
+                        <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center group-hover:bg-green-100 transition"><i class="ph-fill ph-tree text-green-600 text-3xl"></i></div>
+                        <span class="font-bold text-gray-700" data-i18n="sound_forest">Forest</span>
+                        <div class="playing-indicator text-green-500 hidden h-4 flex items-end"><span></span><span></span><span></span><span></span></div>
+                    </button>
+                    <button class="sound-btn bg-white p-6 rounded-2xl border border-gray-100 hover:border-green-500 hover:shadow-lg transition flex flex-col items-center gap-4 group" onclick="toggleAudio('waves', this)">
+                        <div class="w-16 h-16 bg-cyan-50 rounded-full flex items-center justify-center group-hover:bg-cyan-100 transition"><i class="ph-fill ph-waves text-cyan-600 text-3xl"></i></div>
+                        <span class="font-bold text-gray-700" data-i18n="sound_ocean">Ocean</span>
+                        <div class="playing-indicator text-green-500 hidden h-4 flex items-end"><span></span><span></span><span></span><span></span></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div id="resources" class="section-content">
+            <div class="max-w-4xl mx-auto"><h2 class="text-3xl font-bold mb-10 text-center" data-i18n="nav_help">Helplines</h2>
+            <div class="bg-white p-8 rounded-3xl shadow-lg border-l-8 border-orange-500"><h3 class="text-2xl font-bold">Tele MANAS</h3><p>14416</p></div></div>
+        </div>
+    </main>
+
+    <!-- CHATBOT -->
+    <button onclick="toggleChat()" class="chat-float bg-green-600 text-white p-4 rounded-full shadow-2xl transition transform hover:scale-110"><i class="ph-fill ph-chat-teardrop-text text-3xl"></i></button>
+    <div id="chat-window" class="glass fixed bottom-24 right-4 md:right-8 w-80 md:w-96 rounded-3xl shadow-2xl border border-white/50 transform scale-0 origin-bottom-right transition-transform duration-300 z-50 flex flex-col overflow-hidden" style="height: 550px;">
+        <div class="bg-green-600/90 backdrop-blur-md p-4 flex justify-between items-center text-white"><span class="font-bold">MindSpace AI</span><button onclick="toggleChat()"><i class="ph-bold ph-x"></i></button></div>
+        <!-- QUICK CHIPS -->
+        <div class="flex gap-2 p-2 overflow-x-auto bg-gray-50 border-b border-gray-100">
+            <button onclick="sendQuickMessage('I feel anxious')" class="chat-chip">😥 Anxious</button>
+            <button onclick="sendQuickMessage('Can\'t sleep')" class="chat-chip">😴 Can't Sleep</button>
+            <button onclick="sendQuickMessage('Motivate me')" class="chat-chip">🚀 Motivation</button>
+            <button onclick="sendQuickMessage('I feel lonely')" class="chat-chip">😞 Lonely</button>
+        </div>
+        <div id="chat-history" class="flex-grow p-4 overflow-y-auto bg-gray-50/50 space-y-4"></div>
+        <div class="p-4 bg-white border-t border-gray-100"><div class="flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2"><input type="text" id="user-input" class="bg-transparent flex-grow outline-none text-sm"><button onclick="sendMessage()" class="text-green-600"><i class="ph-fill ph-paper-plane-right text-xl"></i></button></div></div>
+    </div>
+
+    <!-- JS LOGIC -->
+    <script>
+        const SERVER_URL = "http://localhost:3000/chat"; 
+        let currentLang='en', dynamicModelName="gemini-1.5-flash", currentUser="Guest";
+        let chatHistoryContext = []; // Stores conversation history
+
+        // --- TRANSLATIONS ---
+        const translations = {
+            en: {
+                login_title: "Welcome to MindSpace", login_desc: "Your safe space for mental wellness.", btn_login: "Login", btn_skip: "Skip for now (Guest Mode)",
+                nav_home: "Dashboard", nav_doc: "Doctors", nav_test: "Assessment", nav_breath: "Breather", nav_know: "Knowledge Hub", nav_help: "Helplines",
+                dash_hello: "Good Morning", dash_streak: "Day Streak", dash_upcoming: "Upcoming Appointments", dash_graph: "Wellness Journey", dash_journal: "Mini Journal",
+                hero_desc: "Ready to take care of your mind today?", mood_title: "How are you feeling?", quote_title: "Daily Wisdom",
+                doc_title: "Find Help & Support", doc_subtitle: "Connect with qualified professionals.", btn_find_doc: "Find a Doctor", btn_reg_doc: "Register as Professional",
+                reg_title: "Professional Registration", btn_submit_reg: "Register Now", book_title: "Book Appointment", lbl_date: "Date", lbl_time: "Time", btn_confirm: "Confirm Booking",
+                tab_wellness: "Mental Wellness", tab_signals: "Distress Signals", tab_myths: "Myths vs Facts", tab_selfhelp: "Self Help", tab_brain: "Brain Gym",
+                t_well_title: "What is Mental Wellness?", t_well_desc: "State of well-being where individual realizes potential.", t_well_deep: "Biological factors, life experiences, and family history play a role.",
+                t_sig_title: "Distress Signals", t_sig_emo: "Emotional", t_sig_emo_desc: "Sadness, confusion, excessive fear.", t_sig_phy: "Physical", t_sig_phy_desc: "Fatigue, insomnia.",
+                t_myth_title: "Myths vs Facts", t_myth_1_m: "Myth: Mental health problems don't affect me.", t_myth_1_f: "Fact: They are common.",
+                t_self_title: "Self Help", t_self_desc: "Connect, be active, keep learning, give to others.",
+                t_brain_title: "Brain Gym", t_brain_rid_title: "Riddle", btn_new_riddle: "Next", btn_show_ans: "Show Answer",
+                card_test_title: "PHQ-9 Test", test_subtitle: "Screening for depression.", res_score: "Score", btn_retake: "Retake",
+                btn_start_breath: "Start Session", btn_stop_breath: "Stop Session", help_1_desc: "Govt of India - 24/7 Mental Health Care.", help_2_desc: "Free Crisis Counseling.",
+                chat_welcome: "Hello! 👋 I'm MindSpace AI. How can I help?",
+                sound_rain: "Heavy Rain", sound_forest: "Forest", sound_ocean: "Ocean"
+            },
+            mr: {
+                login_title: "माइंडस्पेस मध्ये स्वागत आहे", login_desc: "मानसिक आरोग्यासाठी तुमचे सुरक्षित स्थान.", btn_login: "लॉग इन", btn_skip: "आत्ताच पुढे जा (Guest)",
+                nav_home: "डॅशबोर्ड", nav_doc: "डॉक्टर्स", nav_test: "चाचणी", nav_breath: "विश्रांती", nav_know: "ज्ञान केंद्र", nav_help: "हेल्पलाइन",
+                dash_hello: "सुप्रभात", dash_streak: "दिवसांची मालिका", dash_upcoming: "आगामी भेटी", dash_graph: "आरोग्य प्रवास", dash_journal: "रोजनिशी",
+                hero_desc: "आज आपल्या मनाची काळजी घेण्यास तयार आहात?", mood_title: "आज तुम्हाला कसे वाटते?", quote_title: "आजचा सुविचार",
+                doc_title: "मदत मिळवा", doc_subtitle: "तज्ञांशी संपर्क साधा.", btn_find_doc: "डॉक्टर शोधा", btn_reg_doc: "डॉक्टर नोंदणी",
+                reg_title: "व्यावसायिक नोंदणी", btn_submit_reg: "नोंदणी करा", book_title: "अपॉइंटमेंट बुक करा", lbl_date: "तारीख", lbl_time: "वेळ", btn_confirm: "निश्चित करा",
+                tab_wellness: "मानसिक आरोग्य", tab_signals: "धोक्याची लक्षणे", tab_myths: "समज-गैरसमज", tab_selfhelp: "स्व-मदत", tab_brain: "ब्रेन जिम",
+                t_well_title: "मानसिक आरोग्य म्हणजे काय?", t_well_desc: "ही अशी स्थिती आहे जिथे व्यक्तीला स्वतःच्या क्षमतेची जाणीव असते.", t_well_deep: "जैविक घटक, जीवनातील अनुभव आणि कौटुंबिक इतिहास महत्वाची भूमिका बजावतात.",
+                t_sig_title: "धोक्याची लक्षणे", t_sig_emo: "भावनिक", t_sig_emo_desc: "उदासीनता, गोंधळ, भीती.", t_sig_phy: "शारीरिक", t_sig_phy_desc: "थकवा, निद्रानाश.",
+                t_myth_title: "समज आणि सत्य", t_myth_1_m: "समज: मानसिक आजार मला होणार नाहीत.", t_myth_1_f: "सत्य: हे सामान्य आहे.",
+                t_self_title: "स्व-मदत", t_self_desc: "लोकांशी जोडा, सक्रिय राहा, शिकत राहा.",
+                t_brain_title: "ब्रेन जिम", t_brain_rid_title: "कोडे", btn_new_riddle: "पुढील", btn_show_ans: "उत्तर पहा",
+                card_test_title: "PHQ-9 चाचणी", test_subtitle: "नैराश्य तपासणी.", res_score: "गुण", btn_retake: "पुन्हा चाचणी",
+                btn_start_breath: "सुरू करा", btn_stop_breath: "थांबवा", help_1_desc: "भारत सरकार - २४/७ सेवा.", help_2_desc: "विनामूल्य समुपदेशन.",
+                chat_welcome: "नमस्कार! 👋 मी माइंडस्पेस AI आहे. मी कशी मदत करू?",
+                sound_rain: "मुसळधार पाऊस", sound_forest: "जंगल", sound_ocean: "समुद्र"
+            }
+        };
+
+        window.onload = async () => {
+            checkUser(); renderDoctors(); renderQuiz(); loadJournal(); initChart(); loadAppointments();
+            changeLanguage(currentLang);
+            try {
+                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`);
+                const d = await r.json();
+                if(r.ok && d.models) { const m = d.models.find(x => x.name.includes("flash")); if(m) dynamicModelName = m.name.replace("models/", ""); }
+            } catch(e) {}
+        };
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            document.body.className = lang==='mr'?'bg-green-50 min-h-screen flex flex-col lang-mr':'bg-green-50 min-h-screen flex flex-col';
+            document.querySelectorAll('[data-i18n]').forEach(el => { const k=el.getAttribute('data-i18n'); if(translations[lang][k]) el.innerText=translations[lang][k]; });
+            renderQuiz(); renderDoctors();
+            
+            // Re-init chat if empty
+            const history = document.getElementById("chat-history");
+            if (history.children.length === 0) {
+                history.innerHTML = `<div class="flex justify-start"><div class="bg-white border border-gray-200 text-gray-700 rounded-2xl rounded-tl-none p-3 text-sm shadow-sm max-w-[85%] leading-relaxed">${translations[lang]['chat_welcome']}</div></div>`;
+            }
+        }
+
+        // --- AUTH ---
+        function checkUser() {
+            if(localStorage.getItem('mindspace_user_active')) {
+                currentUser = localStorage.getItem('mindspace_user_active');
+                document.getElementById('onboarding-modal').classList.add('hidden');
+                updateUserDisplay();
+            } else { document.getElementById('onboarding-modal').classList.remove('hidden'); }
+        }
+        function switchAuthMode(mode) {
+            const loginForm = document.getElementById('form-login');
+            const signupForm = document.getElementById('form-signup');
+            const btnLogin = document.getElementById('tab-login');
+            const btnSignup = document.getElementById('tab-signup');
+
+            if(mode === 'login') {
+                loginForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+                btnLogin.classList.add('active');
+                btnSignup.classList.remove('active');
+            } else {
+                loginForm.classList.add('hidden');
+                signupForm.classList.remove('hidden');
+                btnLogin.classList.remove('active');
+                btnSignup.classList.add('active');
+            }
+        }
+        function attemptSignup() {
+            const name = document.getElementById('su-name').value;
+            const contact = document.getElementById('su-contact').value;
+            const pass = document.getElementById('su-pass').value;
+            if(name && contact && pass) {
+                localStorage.setItem('user_rec_name', name);
+                localStorage.setItem('user_rec_contact', contact);
+                localStorage.setItem('user_rec_pass', pass);
+                localStorage.setItem('mindspace_user_active', name);
+                currentUser=name; 
+                document.getElementById('onboarding-modal').classList.add('hidden'); 
+                updateUserDisplay(); 
+                confetti({particleCount:100, spread:70});
+            } else { alert("Please fill all fields."); }
+        }
+        function attemptLogin() {
+            const contact = document.getElementById('li-contact').value;
+            const pass = document.getElementById('li-pass').value;
+            const storedContact = localStorage.getItem('user_rec_contact');
+            const storedPass = localStorage.getItem('user_rec_pass');
+            const storedName = localStorage.getItem('user_rec_name');
+
+            if(contact === storedContact && pass === storedPass) {
+                localStorage.setItem('mindspace_user_active', storedName);
+                currentUser=storedName;
+                document.getElementById('onboarding-modal').classList.add('hidden');
+                updateUserDisplay();
+                confetti({particleCount:50, spread:60});
+            } else { alert("Invalid Credentials or User Not Found."); }
+        }
+        function skipOnboarding() { currentUser="Guest"; document.getElementById('onboarding-modal').classList.add('hidden'); updateUserDisplay(); }
+        function handleProfileClick() { if(currentUser==="Guest") document.getElementById('onboarding-modal').classList.remove('hidden'); }
+        function updateUserDisplay() { document.getElementById('user-display').innerText = currentUser; document.getElementById('dashboard-name').innerText = currentUser; document.getElementById('user-initial').innerText = currentUser.charAt(0).toUpperCase(); }
+
+        // --- DOCTORS & APPOINTMENTS ---
+        const defaultDoctors = [
+            { name: "Dr. Anjali Deshpande", spec: "Psychiatrist", exp: "12 Yrs", contact: "Pune, MH", lic: "MH-10234" },
+            { name: "Dr. Rohan Mehra", spec: "Clinical Psychologist", exp: "8 Yrs", contact: "Mumbai, MH", lic: "MH-8821" }
+        ];
+        let selectedDoc = null;
+
+        function renderDoctors() {
+            const container = document.getElementById('doc-find-view');
+            const localDocs = JSON.parse(localStorage.getItem('mindspace_doctors') || '[]');
+            const allDocs = [...defaultDoctors, ...localDocs];
+            container.innerHTML = allDocs.map(doc => `
+                <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl">${doc.name.charAt(4)}</div>
+                        <div><h4 class="font-bold text-gray-800">${doc.name}</h4><p class="text-xs text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded-md inline-block">${doc.spec}</p></div>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-2">Lic: ${doc.lic || 'N/A'}</p>
+                    <div class="text-sm text-gray-500 mb-4"><p>${doc.exp} Exp • ${doc.contact}</p></div>
+                    <button onclick="openAppointmentModal('${doc.name}')" class="w-full border border-blue-600 text-blue-600 py-2 rounded-xl font-bold hover:bg-blue-50">Book Appointment</button>
+                </div>`).join('');
+        }
+        function toggleDocView(view, btn) {
+            if(view==='find') { document.getElementById('doc-find-view').classList.remove('hidden'); document.getElementById('doc-register-view').classList.add('hidden'); renderDoctors(); }
+            else { document.getElementById('doc-find-view').classList.add('hidden'); document.getElementById('doc-register-view').classList.remove('hidden'); }
+        }
+        function registerDoctor(e) {
+            e.preventDefault();
+            const name = document.getElementById('doc-name').value, lic = document.getElementById('doc-lic').value, spec = document.getElementById('doc-spec').value, exp = document.getElementById('doc-exp').value, contact = document.getElementById('doc-contact').value;
+            const docs = JSON.parse(localStorage.getItem('mindspace_doctors') || '[]');
+            docs.push({ name, lic, spec, exp, contact });
+            localStorage.setItem('mindspace_doctors', JSON.stringify(docs));
+            alert(currentLang==='en'?"Registered!":"नोंदणी यशस्वी!"); e.target.reset(); toggleDocView('find', document.querySelector('.doc-tab-btn'));
+        }
+        function openAppointmentModal(docName) { selectedDoc = docName; document.getElementById('booking-doc-name').innerText = docName; document.getElementById('appointment-modal').classList.remove('hidden'); }
+        function closeAppointmentModal() { document.getElementById('appointment-modal').classList.add('hidden'); }
+        function confirmBooking() {
+            const date = document.getElementById('book-date').value, time = document.getElementById('book-time').value;
+            if(!date || !time) return alert("Please select date and time");
+            const apps = JSON.parse(localStorage.getItem('mindspace_apps') || '[]');
+            apps.push({ doc: selectedDoc, date, time });
+            localStorage.setItem('mindspace_apps', JSON.stringify(apps));
+            closeAppointmentModal(); confetti({particleCount:100}); loadAppointments(); alert(currentLang==='en'?"Booking Confirmed!":"बुकिंग निश्चित झाले!");
+        }
+        function loadAppointments() {
+            const apps = JSON.parse(localStorage.getItem('mindspace_apps') || '[]');
+            const list = document.getElementById('appointments-list');
+            const card = document.getElementById('appointments-card');
+            if(apps.length > 0) {
+                card.classList.remove('hidden');
+                list.innerHTML = apps.map(a => `<div class="bg-white p-3 rounded-xl text-sm border border-blue-100 flex justify-between"><span><strong>${a.doc}</strong></span><span>${a.date} @ ${a.time}</span></div>`).join('');
+            }
+        }
+
+        // --- DASHBOARD ---
+        function saveJournal() { localStorage.setItem('mindspace_journal', document.getElementById('daily-journal').value); }
+        function loadJournal() { if(localStorage.getItem('mindspace_journal')) document.getElementById('daily-journal').value = localStorage.getItem('mindspace_journal'); }
+        function initChart() {
+            const ctx = document.getElementById('moodChart').getContext('2d');
+            const history = JSON.parse(localStorage.getItem('mindspace_mood_history') || '[3, 4, 2, 5, 3, 4]');
+            new Chart(ctx, { type: 'line', data: { labels: ['M','T','W','T','F','S','Today'], datasets: [{ label:'Mood', data:[...history, 3], borderColor:'#22c55e', backgroundColor:'rgba(34,197,94,0.1)', fill:true, tension:0.4 }] }, options: { scales:{y:{beginAtZero:true, max:5}} } });
+        }
+        function logMood(val) {
+            const history = JSON.parse(localStorage.getItem('mindspace_mood_history') || '[3, 4, 2, 5, 3, 4]');
+            localStorage.setItem('mindspace_mood_history', JSON.stringify([...history.slice(1), val]));
+            confetti({particleCount:30, origin:{y:0.5}}); alert("Mood Saved!"); initChart();
+        }
+
+        // --- NAVIGATION & TABS ---
+        function showSection(id) { document.querySelectorAll('.section-content').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
+        function openTab(t) { document.querySelectorAll('.info-tab').forEach(x => x.classList.add('hidden')); document.getElementById(`tab-${t}`).classList.remove('hidden'); document.querySelectorAll('.tab-btn').forEach(b=>{b.classList.remove('bg-green-600','text-white');b.classList.add('text-gray-600');}); event.target.classList.add('bg-green-600','text-white'); event.target.classList.remove('text-gray-600'); }
+        function toggleMobileMenu() { document.getElementById('mobile-menu').classList.toggle('hidden'); }
+        function toggleChat() { document.getElementById('chat-window').classList.toggle('scale-0'); }
+        function clearChat() { document.getElementById('chat-history').innerHTML = ''; chatHistoryContext = []; }
+
+        // --- RIDDLES & BRAIN GYM ---
+        const riddles = [{q:"I speak without a mouth...", a:"An Echo"}, {q:"The more of this there is...", a:"Darkness"}];
+        function nextRiddle() { const r=riddles[Math.floor(Math.random()*riddles.length)]; document.getElementById('riddle-text').innerText=`"${r.q}"`; document.getElementById('riddle-answer').innerText=r.a; document.getElementById('riddle-answer').classList.add('hidden-answer'); }
+        function toggleAnswer() { const a=document.getElementById('riddle-answer'); if(a.classList.contains('hidden-answer')){a.classList.remove('hidden-answer');a.style.display='block';}else{a.classList.add('hidden-answer');a.style.display='none';} }
+
+        // --- AUDIO ---
+        const audioFiles = {
+            'rain': new Audio('https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg'),
+            'forest': new Audio('https://actions.google.com/sounds/v1/ambiences/jungle_atmosphere_night.ogg'),
+            'waves': new Audio('https://actions.google.com/sounds/v1/water/water_lapping_wind.ogg')
+        };
+        Object.values(audioFiles).forEach(a => a.loop = true);
+        let currentAudio = null;
+        function toggleAudio(type, btn) {
+            if (currentAudio) {
+                currentAudio.pause(); currentAudio.currentTime = 0;
+                document.querySelectorAll('.sound-btn').forEach(b => {
+                    b.classList.remove('border-green-500', 'shadow-md');
+                    b.querySelector('.playing-indicator').classList.add('hidden');
+                });
+                if (currentAudio === audioFiles[type]) { currentAudio = null; return; }
+            }
+            currentAudio = audioFiles[type]; currentAudio.play();
+            btn.classList.add('border-green-500', 'shadow-md');
+            btn.querySelector('.playing-indicator').classList.remove('hidden');
+        }
+
+        // --- PHQ-9 ---
+        const phq9Content = {
+            en: ["Little interest or pleasure in doing things", "Feeling down, depressed, or hopeless", "Trouble falling or staying asleep, or sleeping too much", "Feeling tired or having little energy", "Poor appetite or overeating", "Feeling bad about yourself", "Trouble concentrating on things", "Moving or speaking slowly", "Thoughts of hurting yourself"],
+            mr: ["काहीही करण्यात रस किंवा आनंद नसणे", "उदासीन, खिन्न किंवा निराश वाटणे", "झोप लागण्यात किंवा टिकवण्यात अडचण, किंवा जास्त झोपणे", "थकवा वाटणे किंवा ऊर्जा कमी असणे", "भूक न लागणे किंवा जास्त खाणे", "स्वतःबद्दल वाईट वाटणे", "एकाग्रतेमध्ये अडचण", "हळू चालणे किंवा बोलणे", "स्वतःला इजा करण्याचे विचार"]
+        };
+        function renderQuiz() {
+            const container = document.getElementById('quiz-container'); container.innerHTML = '';
+            phq9Content[currentLang].forEach((q, i) => {
+                container.innerHTML += `<div class="mb-4 border-b pb-2"><p class="font-medium text-gray-700">${i+1}. ${q}</p><div class="flex gap-2 text-sm mt-2"><label class="border p-2 rounded hover:bg-green-50"><input type="radio" name="q${i}" value="0"> ${currentLang==='en'?'Not at all':'अजिबात नाही'}</label><label class="border p-2 rounded hover:bg-green-50"><input type="radio" name="q${i}" value="1"> ${currentLang==='en'?'Several days':'काही दिवस'}</label><label class="border p-2 rounded hover:bg-green-50"><input type="radio" name="q${i}" value="2"> ${currentLang==='en'?'Half days':'अर्धे दिवस'}</label><label class="border p-2 rounded hover:bg-green-50"><input type="radio" name="q${i}" value="3"> ${currentLang==='en'?'Every day':'दररोज'}</label></div></div>`;
+            });
+            const btn = document.createElement('button'); btn.innerText = currentLang==='en'?"Calculate":"मोजा"; btn.className = "w-full bg-green-600 text-white py-3 rounded-xl font-bold mt-4";
+            btn.onclick = calculateScore; container.appendChild(btn);
+        }
+        function calculateScore() {
+            let score = 0; for(let i=0; i<phq9Content[currentLang].length; i++) { const r = document.querySelector(`input[name="q${i}"]:checked`); if(r) score += parseInt(r.value); }
+            document.getElementById('quiz-result').classList.remove('hidden'); document.getElementById('score-display').innerText=score;
+        }
+        function resetQuiz() { document.getElementById('quiz-result').classList.add('hidden'); renderQuiz(); }
+
+        // --- BREATHER ---
+        let breathInt, isBreathing=false;
+        function toggleBreathing() {
+            const btn = document.getElementById('breath-btn');
+            if(isBreathing) { clearInterval(breathInt); isBreathing=false; btn.innerText=translations[currentLang]['btn_start_breath']; btn.className="mt-12 bg-gray-900 text-white px-10 py-3 rounded-full font-bold transition shadow-lg"; }
+            else { isBreathing=true; btn.innerText=translations[currentLang]['btn_stop_breath']; btn.className="mt-12 bg-red-500 text-white px-10 py-3 rounded-full font-bold transition shadow-lg"; breathCycle(); breathInt=setInterval(breathCycle,12000); }
+        }
+        function breathCycle() { const t=document.getElementById('breath-text'); t.innerText=currentLang==='en'?"Inhale":"श्वास घ्या"; setTimeout(()=>{t.innerText=currentLang==='en'?"Hold":"रोखून धरा"},4000); setTimeout(()=>{t.innerText=currentLang==='en'?"Exhale":"श्वास सोडा"},8000); }
+
+        // --- ADVANCED CHATBOT (BEST EVER) ---
+        function sendQuickMessage(msg) {
+            document.getElementById("user-input").value = msg;
+            sendMessage();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById("user-input"), history = document.getElementById("chat-history"), text = input.value; 
+            if (!text.trim()) return;
+            
+            // 1. Show User Message
+            history.innerHTML += `<div class="flex justify-end mb-2"><div class="bg-green-600 text-white rounded-2xl rounded-tr-none p-3 text-sm shadow-sm max-w-[85%]">${text}</div></div>`;
+            input.value = ""; 
+            history.scrollTop = history.scrollHeight;
+
+            // 2. Typing Indicator
+            const loadingId = "typing-" + Date.now();
+            history.innerHTML += `<div id="${loadingId}" class="flex justify-start mb-2"><div class="bg-gray-100 rounded-2xl rounded-tl-none p-3 shadow-sm flex items-center gap-1"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>`;
+            history.scrollTop = history.scrollHeight;
+
+            // 3. Prepare Context
+            chatHistoryContext.push({ role: "user", parts: [{ text: text }] });
+            const langInstruction = currentLang === 'mr' ? "Reply in MARATHI." : "Reply in English.";
+            const systemInstruction = `
+            You are MindSpace AI, a compassionate CBT-informed mental health companion.
+            User Name: ${currentUser}. ${langInstruction}
+            
+            YOUR TOOLS (If helpful, append these tags to your response):
+            - {{BREATHER}} -> Opens breathing tool (Use for panic/anxiety).
+            - {{ASSESSMENT}} -> Opens PHQ-9 test (Use for depression/sadness).
+            - {{HELPLINE}} -> Opens helplines (Use for suicide/harm).
+
+            FORMATTING:
+            - Use **bold** for key points.
+            - Keep responses warm, concise (max 3 sentences), and supportive.
+            `;
+            
+            // 4. Send to API (Multi-turn)
+            try {
+                // Sending to your local Node.js server instead of Google
+                const res = await fetch(SERVER_URL, { 
+                    method: "POST", 
+                    headers: { "Content-Type": "application/json" }, 
+                    body: JSON.stringify({ 
+                        prompt: text,
+                        lang: currentLang,
+                        user: currentUser
+                    }) 
+                });
+                
+                const d = await res.json();
+                
+                // Remove typing indicator[cite: 1, 2]
+                document.getElementById(loadingId).remove();
+                
+                // Get response text from your server[cite: 1, 2]
+                let aiText = d.text;
+                
+                // 6. Handle Action Tags (Breather, Assessment, etc.)[cite: 1, 2]
+                if(aiText.includes("{{BREATHER}}")) { showSection('breather'); aiText = aiText.replace("{{BREATHER}}", ""); }
+                if(aiText.includes("{{ASSESSMENT}}")) { showSection('assessment'); aiText = aiText.replace("{{ASSESSMENT}}", ""); }
+                if(aiText.includes("{{HELPLINE}}")) { showSection('resources'); aiText = aiText.replace("{{HELPLINE}}", ""); }
+                
+                // 7. Format Markdown & Display[cite: 1, 2]
+                const formattedText = aiText
+                    .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') 
+                    .replace(/\*(.*?)\*/g, '<i>$1</i>') 
+                    .replace(/\n/g, '<br>'); 
+
+                history.innerHTML += `<div class="flex justify-start mb-2"><div class="bg-white border border-gray-200 text-gray-800 rounded-2xl rounded-tl-none p-3 text-sm shadow-sm max-w-[90%] leading-relaxed">${formattedText}</div></div>`;
+                
+                // Save to History[cite: 1, 2]
+                chatHistoryContext.push({ role: "model", parts: [{ text: aiText }] });
+
+            } catch (e) { 
+                document.getElementById(loadingId).remove();
+                history.innerHTML += `<div class="flex justify-start mb-2"><div class="bg-red-50 text-red-600 rounded-2xl rounded-tl-none p-3 text-xs border border-red-100">⚠️ Error: Make sure "node server.js" is running in your terminal!</div></div>`; 
+            }
+            history.scrollTop = history.scrollHeight;
+        }
+
+        document.getElementById("user-input").addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
+    </script>
+</body>
+</html>
