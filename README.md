@@ -13,7 +13,7 @@
 ---
 
 ### 📝 Project Overview
-MindSpace is a comprehensive mental health platform developed as part of our **Community Engagement Project (CEP)**. It provides a safe space for users to track their emotional well-8ing and interact with an AI counselor powered by Google's latest generative models.
+MindSpace is a comprehensive mental health platform. It provides a safe space for users to track their emotional well-8ing and interact with an AI counselor powered by Google's latest generative models.
 
 ### 🚀 Key Features
 *   **Intelligent Chat**: empathetic conversations via the **Gemini 1.5 Flash** API.
