@@ -4,7 +4,7 @@
   <p><strong>AI-Powered Wellness Companion</strong></p>
   
   <p>
-    <img src="https://img.shields.io/badge/Gemini_1.5_Flash-8E75FF?style=for-the-badge&logo=google-gemini&logoColor=white" />
+    <img src="https://img.shields.io/badge/Gemini_2.5_Flash-8E75FF?style=for-the-badge&logo=google-gemini&logoColor=white" />
     <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" />
     <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" />
   </p>
